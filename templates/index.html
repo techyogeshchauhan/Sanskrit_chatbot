@@ -118,6 +118,22 @@
         .delete-btn:hover {
             background-color: #cc0000;
         }
+
+        .clear-chat-btn {
+            background-color: #ff3333;
+            margin-top: 10px;
+        }
+
+        .clear-chat-btn:hover {
+            background-color: #cc0000;
+        }
+
+        .loading {
+            display: none;
+            font-size: 1.2rem;
+            color: #0073bb;
+            margin-top: 10px;
+        }
     </style>
 </head>
 <body>
@@ -126,6 +142,7 @@
     <div class="container">
         <div class="sidebar">
             <h3>Chat History</h3>
+            <button class="clear-chat-btn" onclick="clearChat()">Clear All Chats</button>
             <ul id="chat-history-list"></ul>
         </div>
         <div class="chat-container">
@@ -135,39 +152,50 @@
                 <input type="text" id="user-input" placeholder="Type a message...">
                 <button onclick="sendMessage()">Send</button>
             </div>
+            <div class="loading" id="loading">Loading...</div>
         </div>
     </div>
 
     <script>
         // Load chat history when the page loads
         async function loadChatHistory() {
-            const response = await fetch('/chat/history');
-            const data = await response.json();
-            const chatHistoryList = document.getElementById('chat-history-list');
-            const chatHistory = document.getElementById('chat-history');
+            showLoading();
+            try {
+                const response = await fetch('/chat/history');
+                const data = await response.json();
+                const chatHistoryList = document.getElementById('chat-history-list');
+                const chatHistory = document.getElementById('chat-history');
 
-            data.forEach(chat => {
-                // Add to sidebar
-                const chatItem = document.createElement('li');
-                chatItem.textContent = chat.user_message;
-                const deleteBtn = document.createElement('button');
-                deleteBtn.className = 'delete-btn';
-                deleteBtn.textContent = 'Delete';
-                deleteBtn.onclick = () => deleteChat(chat._id);
-                chatItem.appendChild(deleteBtn);
-                chatHistoryList.appendChild(chatItem);
+                chatHistoryList.innerHTML = '';
+                chatHistory.innerHTML = '';
 
-                // Add to chat history
-                const userMessage = document.createElement('div');
-                userMessage.className = 'message user-message';
-                userMessage.textContent = chat.user_message;
-                chatHistory.appendChild(userMessage);
+                data.forEach(chat => {
+                    // Add to sidebar
+                    const chatItem = document.createElement('li');
+                    chatItem.textContent = chat.user_message;
+                    const deleteBtn = document.createElement('button');
+                    deleteBtn.className = 'delete-btn';
+                    deleteBtn.textContent = 'Delete';
+                    deleteBtn.onclick = () => deleteChat(chat._id);
+                    chatItem.appendChild(deleteBtn);
+                    chatHistoryList.appendChild(chatItem);
 
-                const botMessage = document.createElement('div');
-                botMessage.className = 'message bot-message';
-                botMessage.textContent = chat.bot_message;
-                chatHistory.appendChild(botMessage);
-            });
+                    // Add to chat history
+                    const userMessage = document.createElement('div');
+                    userMessage.className = 'message user-message';
+                    userMessage.textContent = chat.user_message;
+                    chatHistory.appendChild(userMessage);
+
+                    const botMessage = document.createElement('div');
+                    botMessage.className = 'message bot-message';
+                    botMessage.textContent = chat.bot_message;
+                    chatHistory.appendChild(botMessage);
+                });
+            } catch (error) {
+                console.error('Error loading chat history:', error);
+            } finally {
+                hideLoading();
+            }
         }
 
         // Send a message to the chatbot
@@ -176,58 +204,99 @@
             const message = input.value.trim();
             if (message === '') return;
 
-            const response = await fetch('/chat', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({ message }),
-            });
-            const data = await response.json();
+            showLoading();
+            try {
+                const response = await fetch('/chat', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ message }),
+                });
+                const data = await response.json();
 
-            if (data.response) {
-                const chatHistory = document.getElementById('chat-history');
-                const chatHistoryList = document.getElementById('chat-history-list');
+                if (data.response) {
+                    const chatHistory = document.getElementById('chat-history');
+                    const chatHistoryList = document.getElementById('chat-history-list');
 
-                // Add user message to chat history
-                const userMessage = document.createElement('div');
-                userMessage.className = 'message user-message';
-                userMessage.textContent = message;
-                chatHistory.appendChild(userMessage);
+                    // Add user message to chat history
+                    const userMessage = document.createElement('div');
+                    userMessage.className = 'message user-message';
+                    userMessage.textContent = message;
+                    chatHistory.appendChild(userMessage);
 
-                // Add bot response to chat history
-                const botMessage = document.createElement('div');
-                botMessage.className = 'message bot-message';
-                botMessage.textContent = data.response;
-                chatHistory.appendChild(botMessage);
+                    // Add bot response to chat history
+                    const botMessage = document.createElement('div');
+                    botMessage.className = 'message bot-message';
+                    botMessage.textContent = data.response;
+                    chatHistory.appendChild(botMessage);
 
-                // Add to sidebar
-                const chatItem = document.createElement('li');
-                chatItem.textContent = message;
-                const deleteBtn = document.createElement('button');
-                deleteBtn.className = 'delete-btn';
-                deleteBtn.textContent = 'Delete';
-                deleteBtn.onclick = () => deleteChat(data.chat_id); // Assuming the backend returns the chat ID
-                chatItem.appendChild(deleteBtn);
-                chatHistoryList.appendChild(chatItem);
+                    // Add to sidebar
+                    const chatItem = document.createElement('li');
+                    chatItem.textContent = message;
+                    const deleteBtn = document.createElement('button');
+                    deleteBtn.className = 'delete-btn';
+                    deleteBtn.textContent = 'Delete';
+                    deleteBtn.onclick = () => deleteChat(data.chat_id); // Assuming the backend returns the chat ID
+                    chatItem.appendChild(deleteBtn);
+                    chatHistoryList.appendChild(chatItem);
+                }
+            } catch (error) {
+                console.error('Error sending message:', error);
+            } finally {
+                input.value = '';
+                hideLoading();
             }
-
-            input.value = '';
         }
 
         // Delete a chat message
         async function deleteChat(chatId) {
-            const response = await fetch(`/chat/delete/${chatId}`, {
-                method: 'DELETE',
-            });
-            const data = await response.json();
+            showLoading();
+            try {
+                const response = await fetch(`/chat/delete/${chatId}`, {
+                    method: 'DELETE',
+                });
+                const data = await response.json();
 
-            if (data.success) {
-                // Reload the chat history
-                document.getElementById('chat-history-list').innerHTML = '';
-                document.getElementById('chat-history').innerHTML = '';
-                loadChatHistory();
+                if (data.success) {
+                    // Reload the chat history
+                    loadChatHistory();
+                }
+            } catch (error) {
+                console.error('Error deleting chat:', error);
+            } finally {
+                hideLoading();
             }
+        }
+
+        // Clear all chat history
+        async function clearChat() {
+            showLoading();
+            try {
+                const response = await fetch('/chat/clear', {
+                    method: 'POST',
+                });
+                const data = await response.json();
+
+                if (data.success) {
+                    // Reload the chat history
+                    loadChatHistory();
+                }
+            } catch (error) {
+                console.error('Error clearing chat:', error);
+            } finally {
+                hideLoading();
+            }
+        }
+
+        // Show loading indicator
+        function showLoading() {
+            document.getElementById('loading').style.display = 'block';
+        }
+
+        // Hide loading indicator
+        function hideLoading() {
+            document.getElementById('loading').style.display = 'none';
         }
 
         // Load chat history on page load
