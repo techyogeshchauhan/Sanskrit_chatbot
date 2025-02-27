@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -105,6 +104,20 @@
         .logout-btn:hover {
             background-color: #cc4626;
         }
+
+        .delete-btn {
+            background-color: #ff3333;
+            color: white;
+            border: none;
+            padding: 5px 10px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin-left: 10px;
+        }
+
+        .delete-btn:hover {
+            background-color: #cc0000;
+        }
     </style>
 </head>
 <body>
@@ -126,33 +139,99 @@
     </div>
 
     <script>
-        function sendMessage() {
-            const input = document.getElementById("user-input");
-            const message = input.value.trim();
-            if (message === "") return;
+        // Load chat history when the page loads
+        async function loadChatHistory() {
+            const response = await fetch('/chat/history');
+            const data = await response.json();
+            const chatHistoryList = document.getElementById('chat-history-list');
+            const chatHistory = document.getElementById('chat-history');
 
-            const chatHistory = document.getElementById("chat-history");
-            const chatHistoryList = document.getElementById("chat-history-list");
-            
-            const userMessage = document.createElement("div");
-            userMessage.className = "message user-message";
-            userMessage.innerHTML = message;
-            chatHistory.appendChild(userMessage);
+            data.forEach(chat => {
+                // Add to sidebar
+                const chatItem = document.createElement('li');
+                chatItem.textContent = chat.user_message;
+                const deleteBtn = document.createElement('button');
+                deleteBtn.className = 'delete-btn';
+                deleteBtn.textContent = 'Delete';
+                deleteBtn.onclick = () => deleteChat(chat._id);
+                chatItem.appendChild(deleteBtn);
+                chatHistoryList.appendChild(chatItem);
 
-            const chatItem = document.createElement("li");
-            chatItem.textContent = message;
-            chatHistoryList.appendChild(chatItem);
+                // Add to chat history
+                const userMessage = document.createElement('div');
+                userMessage.className = 'message user-message';
+                userMessage.textContent = chat.user_message;
+                chatHistory.appendChild(userMessage);
 
-            setTimeout(() => {
-                const botMessage = document.createElement("div");
-                botMessage.className = "message bot-message";
-                botMessage.innerHTML = "This is a bot response. Ask your next question";
+                const botMessage = document.createElement('div');
+                botMessage.className = 'message bot-message';
+                botMessage.textContent = chat.bot_message;
                 chatHistory.appendChild(botMessage);
-            }, 1000);
-            
-            input.value = "";
-
+            });
         }
+
+        // Send a message to the chatbot
+        async function sendMessage() {
+            const input = document.getElementById('user-input');
+            const message = input.value.trim();
+            if (message === '') return;
+
+            const response = await fetch('/chat', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ message }),
+            });
+            const data = await response.json();
+
+            if (data.response) {
+                const chatHistory = document.getElementById('chat-history');
+                const chatHistoryList = document.getElementById('chat-history-list');
+
+                // Add user message to chat history
+                const userMessage = document.createElement('div');
+                userMessage.className = 'message user-message';
+                userMessage.textContent = message;
+                chatHistory.appendChild(userMessage);
+
+                // Add bot response to chat history
+                const botMessage = document.createElement('div');
+                botMessage.className = 'message bot-message';
+                botMessage.textContent = data.response;
+                chatHistory.appendChild(botMessage);
+
+                // Add to sidebar
+                const chatItem = document.createElement('li');
+                chatItem.textContent = message;
+                const deleteBtn = document.createElement('button');
+                deleteBtn.className = 'delete-btn';
+                deleteBtn.textContent = 'Delete';
+                deleteBtn.onclick = () => deleteChat(data.chat_id); // Assuming the backend returns the chat ID
+                chatItem.appendChild(deleteBtn);
+                chatHistoryList.appendChild(chatItem);
+            }
+
+            input.value = '';
+        }
+
+        // Delete a chat message
+        async function deleteChat(chatId) {
+            const response = await fetch(`/chat/delete/${chatId}`, {
+                method: 'DELETE',
+            });
+            const data = await response.json();
+
+            if (data.success) {
+                // Reload the chat history
+                document.getElementById('chat-history-list').innerHTML = '';
+                document.getElementById('chat-history').innerHTML = '';
+                loadChatHistory();
+            }
+        }
+
+        // Load chat history on page load
+        loadChatHistory();
     </script>
 </body>
 </html>
